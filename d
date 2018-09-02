@@ -1,1 +1,0 @@
-Sun Sep  2 13:43:26 2018 [  [34mDEBUG[00m  ] This is a debug message.
