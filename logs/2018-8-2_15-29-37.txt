@@ -1,0 +1,4 @@
+Sun Sep  2 15:29:37 2018 [   LOG   ] This is a logging message.
+Sun Sep  2 15:29:37 2018 [ WARNING ] This is a warning message.
+Sun Sep  2 15:29:37 2018 [  ERROR  ] This is an error message.
+Sun Sep  2 15:29:37 2018 [  DEBUG  ] This is a debug message.

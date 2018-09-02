@@ -47,17 +47,22 @@ public:
 
 	jLog()
 	{
+		// Get Now Time
 		auto now_time = std::chrono::system_clock::now();
 		std::time_t t_time = std::chrono::system_clock::to_time_t(now_time);
 		tm local_time = *localtime(&t_time);
-		const char d[] = "logs";
+
+		// Create logs directory to store log files
+		const char d[] = "../logs";
 		boost::filesystem::path dir(d);
 		try {
 			boost::filesystem::create_directory(dir);
 		} catch(boost::filesystem::filesystem_error &e) {
 			std::cerr << e.what() << '\n';
 		}
-		std::string fmt_time = "logs/";
+
+		// Create new single log file for the program's execution
+		std::string fmt_time = "../logs/";
 		fmt_time.append(std::to_string(local_time.tm_year + 1900));
 		fmt_time.append("-");
 		fmt_time.append(std::to_string(local_time.tm_mon));
@@ -70,12 +75,15 @@ public:
 		fmt_time.append("-");
 		fmt_time.append(std::to_string(local_time.tm_sec));
 		fmt_time.append(".txt");
+
 		std::cout << "Created log file: " << fmt_time << std::endl;
+
+		// Init ofstream to append to log file
 		_p = boost::filesystem::path(fmt_time);
 		_ofs = std::make_unique<boost::filesystem::ofstream>(_p);
 	}
 
-	std::string dispNowTime()
+	std::string getNowTime()
 	{
 		auto now_time = std::chrono::system_clock::now();
 		std::time_t sleep_time = std::chrono::system_clock::to_time_t(now_time);
@@ -85,28 +93,43 @@ public:
 	}
 
 	template<typename T>
-	jLog& operator<<(T& t)
+	jLog& operator<<(const T& t)
 	{
 		if(logTFlag) {
+
+			// set flag false so time and log isn't displayed
+			// 		for ever << operation
 			logTFlag = false;
-			std::cout << jLog::dispNowTime() << jLog::logLevelToString(_jll)
+
+			// Write to console
+			std::cout << jLog::getNowTime() << jLog::logLevelToString(_jll)
 					<< t;
-			*_ofs << jLog::dispNowTime() << jLog::logLevelToStringNoColor(_jll)
+			// write to file
+			*_ofs << jLog::getNowTime() << jLog::logLevelToStringNoColor(_jll)
 					<< t;
 		} else {
+
+			// Write to console
 			std::cout << t;
+
+			// write to file
 			*_ofs << t;
 		}
+
+		// Write new line at the file for each log entry
 		*_ofs << "\n";
 		return *this;
 	}
 
+	// used for multiple << operations on each write
 	jLog& log(jLogLevel jll)
 	{
 		_jll = jll;
 		return *this;
 	}
 
+	// used to flag that std::endl has been called
+	//     to designate log entry is finished
 	jLog& operator<<(std::ostream& (*os)(std::ostream&))
 	{
 		std::cout << os;
@@ -115,9 +138,10 @@ public:
 	}
 
 private:
+
 	jLogLevel _jll = _j_LOG__;
 	bool logTFlag = true;
-	//boost::filesystem::ofstream& _ofs;
+
 	boost::filesystem::path _p;
 	std::unique_ptr<boost::filesystem::ofstream> _ofs;
 
@@ -151,6 +175,7 @@ private:
 	}
 };
 
+// initialize static Singleton member
 template<typename T>
 std::shared_ptr<T> Singleton<T>::instance(nullptr);
 
