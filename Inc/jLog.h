@@ -98,7 +98,7 @@ public:
 		if(logTFlag) {
 
 			// set flag false so time and log isn't displayed
-			// 		for ever << operation
+			// 		for every << operation
 			logTFlag = false;
 
 			// Write to console
