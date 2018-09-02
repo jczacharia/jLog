@@ -12,8 +12,6 @@
 #include <boost/filesystem.hpp>
 #include <chrono>
 #include <ctime>
-#include <fstream>
-#include <sstream>
 
 enum jLogLevel
 {
@@ -71,9 +69,8 @@ public:
 		fmt_time.append(std::to_string(local_time.tm_min));
 		fmt_time.append("-");
 		fmt_time.append(std::to_string(local_time.tm_sec));
-		fmt_time.append("-");
 		fmt_time.append(".txt");
-		std::cout << "LOCAL: " << fmt_time << " NICE" << std::endl;
+		std::cout << "Created log file: " << fmt_time << std::endl;
 		_p = boost::filesystem::path(fmt_time);
 		_ofs = std::make_unique<boost::filesystem::ofstream>(_p);
 	}
