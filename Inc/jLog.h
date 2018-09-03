@@ -12,6 +12,7 @@
 #include <fstream>
 #include <memory>
 #include <chrono>
+#include <cstring>
 #include <ctime>
 
 enum class Level {
@@ -39,7 +40,8 @@ class jLog: private Singleton<jLog> {
 public:
 
 	jLog() :
-			_level(Level::Log), _logTFlag(true)
+			_level(Level::Log),
+			_logTFlag(true)
 	{
 		// Get Now Time
 		auto now_time = std::chrono::system_clock::now();
@@ -79,13 +81,14 @@ public:
 
 public:
 
-	std::string getNowTime()
+	const char* const getNowTime()
 	{
+
 		auto now_time = std::chrono::system_clock::now();
 		std::time_t sleep_time = std::chrono::system_clock::to_time_t(now_time);
-		std::string tmp_time = std::string(std::ctime(&sleep_time));
-		tmp_time.pop_back();
-		return tmp_time;
+		char* rtn = std::ctime(&sleep_time);
+		rtn[strlen(rtn) - 1] = '\0'; // delete '\n' at the end
+		return rtn;
 	}
 
 	template<typename T>
