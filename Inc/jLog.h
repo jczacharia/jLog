@@ -14,13 +14,17 @@
 #include <chrono>
 #include <cstring>
 #include <ctime>
+#include <thread>
+#include <mutex>
 
-enum class Level {
+enum class Level
+{
 	Log, Warn, Err, Dbg
 };
 
 template<class T>
-class Singleton {
+class Singleton
+{
 protected:
 	/* Here will be the instance stored. */
 	static std::unique_ptr<T> instance;
@@ -36,12 +40,13 @@ public:
 			noexcept(std::is_nothrow_constructible<T>::value);
 };
 
-class jLog: private Singleton<jLog> {
+class jLog: private Singleton<jLog>
+{
 public:
 
 	jLog() :
-			_level(Level::Log),
-			_logTFlag(true)
+			_level(Level::Log), _time_stamp_flag_for_new_log_entry(true), _console_output(
+					&std::cout)
 	{
 		// Get Now Time
 		auto now_time = std::chrono::system_clock::now();
@@ -49,7 +54,7 @@ public:
 		tm local_time = *localtime(&t_time);
 
 		// Create new single log file for the program's execution
-		std::string fmt_time = "logs/";
+		std::string fmt_time = "logs/jLog_";
 		fmt_time.append(std::to_string(local_time.tm_year + 1900));
 		fmt_time.append("-");
 		fmt_time.append(std::to_string(local_time.tm_mon));
@@ -63,27 +68,28 @@ public:
 		fmt_time.append(std::to_string(local_time.tm_sec));
 		fmt_time.append(".txt");
 
-		_ofs = std::ofstream(fmt_time, std::ios::out | std::ios::app);
-		if(!_ofs.is_open()) {
+		_file_output = std::ofstream(fmt_time, std::ios::out | std::ios::app);
+		if(!_file_output.is_open()) {
 			// std::cerr writes (typically error messages) to the standard error stream stderr (unbuffered)
 			// https://en.wikipedia.org/wiki/Stderr
-			std::cerr << "*** error: could not open output file: " << fmt_time
-					<< std::endl;
+			std::cerr << "*** jLog error: could not open output file: "
+					<< fmt_time << std::endl;
 		} else {
-			std::cout << "Created log file: " << fmt_time << std::endl;
+			*_console_output << "Created log file: " << fmt_time << std::endl;
+			_file_output
+					<< "This Log file was created using the jLog Framework (C) Jeremy C Zacharia\n\n";
 		}
 	}
 
 	~jLog()
 	{
-		_ofs.close();
+		_file_output.close();
 	}
 
 public:
 
 	const char* const getNowTime()
 	{
-
 		auto now_time = std::chrono::system_clock::now();
 		std::time_t sleep_time = std::chrono::system_clock::to_time_t(now_time);
 		char* rtn = std::ctime(&sleep_time);
@@ -94,58 +100,75 @@ public:
 	template<typename T>
 	jLog& operator<<(const T& t)
 	{
-		if(_logTFlag) {
+		std::lock_guard<std::mutex> lock(jLog::_mutex);
+		if(_time_stamp_flag_for_new_log_entry) {
 
 			// set flag false so time and log isn't displayed
 			// 		for every << operation
-			_logTFlag = false;
+			_time_stamp_flag_for_new_log_entry = false;
 
 			// Write to console
-			std::cout << jLog::getNowTime() << jLog::logLevelToString(_level)
-					<< t;
+			*_console_output << jLog::getNowTime()
+					<< jLog::logLevelToStringColor(_level) << t;
 			// write to file
-			_ofs << jLog::getNowTime() << jLog::logLevelToStringNoColor(_level)
-					<< t;
+			_file_output << jLog::getNowTime()
+					<< jLog::logLevelToStringNoColor(_level) << t;
 		} else {
 
 			// Write to console
-			std::cout << t;
+			*_console_output << t;
 
 			// write to file
-			_ofs << t;
+			_file_output << t;
 		}
 		return *this;
-	}
-
-	// used for multiple << operations on each write
-	template<Level l>
-	static jLog& log()
-	{
-		jLog& rtn = *jLog::get();
-		rtn._level = l;
-		return rtn;
 	}
 
 	// used to flag that std::endl has been called
 	//     to designate log entry is finished
 	jLog& operator<<(std::ostream& (*os)(std::ostream&))
 	{
+		std::lock_guard<std::mutex> lock(jLog::_mutex);
 		// Write new line to console
-		std::cout << os;
+		*_console_output << os;
 		// Write new line at the file for each log entry
-		_ofs << os;
-		_logTFlag = true;
+		_file_output << os;
+		_time_stamp_flag_for_new_log_entry = true;
 		return *this;
+	}
+
+	/* Static members */
+
+	// used for multiple << operations on each write
+	static jLog& log(Level l = Level::Log)
+	{
+		std::lock_guard<std::mutex> lock(jLog::_mutex);
+		jLog& jlog = *jLog::get();
+		jlog._level = l;
+		return jlog;
+	}
+
+	static void setConsoleOutput(std::ostream& os)
+	{
+		jLog& jlog = *jLog::get();
+		jlog._console_output = &os;
+	}
+
+	static void setFileOutput(const char* const path)
+	{
+		jLog& jlog = *jLog::get();
+		jlog._file_output = std::ofstream(path, std::ios::out | std::ios::app);
 	}
 
 private:
 
 	Level _level;
-	bool _logTFlag;
-	std::ofstream _ofs;
-	//std::ostream _output;
+	bool _time_stamp_flag_for_new_log_entry;
+	std::ofstream _file_output;
+	std::ostream* _console_output;
+	static std::mutex _mutex;
 
-	const char* const logLevelToString(Level jll)
+	const char* const logLevelToStringColor(Level jll)
 	{
 		switch(_level) {
 		case Level::Log:
@@ -175,6 +198,9 @@ private:
 		return "";
 	}
 };
+
+// Init mutex
+std::mutex jLog::_mutex;
 
 // initialize static Singleton member
 template<typename T>
