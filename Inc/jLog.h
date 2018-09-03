@@ -38,6 +38,7 @@ public:
 	/* Static access method. */
 	static std::unique_ptr<T>& get()
 			noexcept(std::is_nothrow_constructible<T>::value);
+
 };
 
 class jLog: private Singleton<jLog>
@@ -86,8 +87,6 @@ public:
 		_file_output.close();
 	}
 
-public:
-
 	const char* const getNowTime()
 	{
 		auto now_time = std::chrono::system_clock::now();
@@ -110,7 +109,7 @@ public:
 			// Write to console
 			*_console_output << jLog::getNowTime()
 					<< jLog::logLevelToStringColor(_level) << t;
-			// write to file
+			// Write to file
 			_file_output << jLog::getNowTime()
 					<< jLog::logLevelToStringNoColor(_level) << t;
 		} else {
