@@ -9,26 +9,25 @@
 #define JLOG_H_
 
 #include <iostream>
-#include <boost/filesystem.hpp>
+#include <fstream>
+#include <memory>
 #include <chrono>
+#include <cstring>
 #include <ctime>
+#include <thread>
+#include <mutex>
 
-enum jLogLevel
+enum class Level
 {
-	_j_LOG__, _j_WAR__, _j_ERR__, _j_DBG__
+	Log, Warn, Err, Dbg
 };
-
-#define jLOG jLog::get()->log(_j_LOG__)
-#define jWAR jLog::get()->log(_j_WAR__)
-#define jERR jLog::get()->log(_j_ERR__)
-#define jDBG jLog::get()->log(_j_DBG__)
 
 template<class T>
 class Singleton
 {
 protected:
 	/* Here will be the instance stored. */
-	static std::shared_ptr<T> instance;
+	static std::unique_ptr<T> instance;
 
 	/* Protected constructor to prevent instancing. */
 	Singleton()
@@ -37,32 +36,25 @@ protected:
 
 public:
 	/* Static access method. */
-	static std::shared_ptr<T> get()
+	static std::unique_ptr<T>& get()
 			noexcept(std::is_nothrow_constructible<T>::value);
 };
 
-class jLog: public Singleton<jLog>
+class jLog: private Singleton<jLog>
 {
 public:
 
-	jLog()
+	jLog() :
+			_level(Level::Log), _time_stamp_flag_for_new_log_entry(true), _console_output(
+					&std::cout)
 	{
 		// Get Now Time
 		auto now_time = std::chrono::system_clock::now();
 		std::time_t t_time = std::chrono::system_clock::to_time_t(now_time);
 		tm local_time = *localtime(&t_time);
 
-		// Create logs directory to store log files
-		const char d[] = "../logs";
-		boost::filesystem::path dir(d);
-		try {
-			boost::filesystem::create_directory(dir);
-		} catch(boost::filesystem::filesystem_error &e) {
-			std::cerr << e.what() << '\n';
-		}
-
 		// Create new single log file for the program's execution
-		std::string fmt_time = "../logs/";
+		std::string fmt_time = "logs/jLog_";
 		fmt_time.append(std::to_string(local_time.tm_year + 1900));
 		fmt_time.append("-");
 		fmt_time.append(std::to_string(local_time.tm_mon));
@@ -76,55 +68,59 @@ public:
 		fmt_time.append(std::to_string(local_time.tm_sec));
 		fmt_time.append(".txt");
 
-		std::cout << "Created log file: " << fmt_time << std::endl;
-
-		// Init ofstream to append to log file
-		_p = boost::filesystem::path(fmt_time);
-		_ofs = std::make_unique<boost::filesystem::ofstream>(_p);
+		_file_output = std::ofstream(fmt_time, std::ios::out | std::ios::app);
+		if(!_file_output.is_open()) {
+			// std::cerr writes (typically error messages) to the standard error stream stderr (unbuffered)
+			// https://en.wikipedia.org/wiki/Stderr
+			std::cerr << "*** jLog error: could not open output file: "
+					<< fmt_time << std::endl;
+		} else {
+			*_console_output << "Created log file: " << fmt_time << std::endl;
+			_file_output
+					<< "This Log file was created using the jLog Framework (C) Jeremy C Zacharia\n\n";
+		}
 	}
 
-	std::string getNowTime()
+	~jLog()
+	{
+		_file_output.close();
+	}
+
+public:
+
+	const char* const getNowTime()
 	{
 		auto now_time = std::chrono::system_clock::now();
 		std::time_t sleep_time = std::chrono::system_clock::to_time_t(now_time);
-		std::string tmp_time = std::string(std::ctime(&sleep_time));
-		tmp_time.pop_back();
-		return tmp_time;
+		char* rtn = std::ctime(&sleep_time);
+		rtn[strlen(rtn) - 1] = '\0'; // delete '\n' at the end
+		return rtn;
 	}
 
 	template<typename T>
 	jLog& operator<<(const T& t)
 	{
-		if(logTFlag) {
+		std::lock_guard<std::mutex> lock(jLog::_mutex);
+		if(_time_stamp_flag_for_new_log_entry) {
 
 			// set flag false so time and log isn't displayed
 			// 		for every << operation
-			logTFlag = false;
+			_time_stamp_flag_for_new_log_entry = false;
 
 			// Write to console
-			std::cout << jLog::getNowTime() << jLog::logLevelToString(_jll)
-					<< t;
+			*_console_output << jLog::getNowTime()
+					<< jLog::logLevelToStringColor(_level) << t;
 			// write to file
-			*_ofs << jLog::getNowTime() << jLog::logLevelToStringNoColor(_jll)
-					<< t;
+			_file_output << jLog::getNowTime()
+					<< jLog::logLevelToStringNoColor(_level) << t;
 		} else {
 
 			// Write to console
-			std::cout << t;
+			*_console_output << t;
 
 			// write to file
-			*_ofs << t;
+			_file_output << t;
 		}
-
-		// Write new line at the file for each log entry
-		*_ofs << "\n";
-		return *this;
-	}
-
-	// used for multiple << operations on each write
-	jLog& log(jLogLevel jll)
-	{
-		_jll = jll;
 		return *this;
 	}
 
@@ -132,60 +128,91 @@ public:
 	//     to designate log entry is finished
 	jLog& operator<<(std::ostream& (*os)(std::ostream&))
 	{
-		std::cout << os;
-		logTFlag = true;
+		std::lock_guard<std::mutex> lock(jLog::_mutex);
+		// Write new line to console
+		*_console_output << os;
+		// Write new line at the file for each log entry
+		_file_output << os;
+		_time_stamp_flag_for_new_log_entry = true;
 		return *this;
+	}
+
+	/* Static members */
+
+	// used for multiple << operations on each write
+	static jLog& log(Level l = Level::Log)
+	{
+		std::lock_guard<std::mutex> lock(jLog::_mutex);
+		jLog& jlog = *jLog::get();
+		jlog._level = l;
+		return jlog;
+	}
+
+	static void setConsoleOutput(std::ostream& os)
+	{
+		jLog& jlog = *jLog::get();
+		jlog._console_output = &os;
+	}
+
+	static void setFileOutput(const char* const path)
+	{
+		jLog& jlog = *jLog::get();
+		jlog._file_output = std::ofstream(path, std::ios::out | std::ios::app);
 	}
 
 private:
 
-	jLogLevel _jll = _j_LOG__;
-	bool logTFlag = true;
+	Level _level;
+	bool _time_stamp_flag_for_new_log_entry;
+	std::ofstream _file_output;
+	std::ostream* _console_output;
+	static std::mutex _mutex;
 
-	boost::filesystem::path _p;
-	std::unique_ptr<boost::filesystem::ofstream> _ofs;
-
-	std::string logLevelToString(jLogLevel jll)
+	const char* const logLevelToStringColor(Level jll)
 	{
-		switch(jll) {
-		case _j_LOG__:
+		switch(_level) {
+		case Level::Log:
 			return " [   LOG   ] ";
-		case _j_WAR__:
+		case Level::Warn:
 			return " [ \e[33mWARNING\e[00m ] ";
-		case _j_ERR__:
+		case Level::Err:
 			return " [  \e[31mERROR\e[00m  ] ";
-		case _j_DBG__:
+		case Level::Dbg:
 			return " [  \e[34mDEBUG\e[00m  ] ";
 		}
 		return "";
 	}
-	std::string logLevelToStringNoColor(jLogLevel jll)
+
+	const char* const logLevelToStringNoColor(Level jll)
 	{
 		switch(jll) {
-		case _j_LOG__:
+		case Level::Log:
 			return " [   LOG   ] ";
-		case _j_WAR__:
+		case Level::Warn:
 			return " [ WARNING ] ";
-		case _j_ERR__:
+		case Level::Err:
 			return " [  ERROR  ] ";
-		case _j_DBG__:
+		case Level::Dbg:
 			return " [  DEBUG  ] ";
 		}
 		return "";
 	}
 };
 
+// Init mutex
+std::mutex jLog::_mutex;
+
 // initialize static Singleton member
 template<typename T>
-std::shared_ptr<T> Singleton<T>::instance(nullptr);
+std::unique_ptr<T> Singleton<T>::instance(nullptr);
 
 /* Static access method. */
 template<typename T>
-std::shared_ptr<T> Singleton<T>::get()
+std::unique_ptr<T>& Singleton<T>::get()
 noexcept(std::is_nothrow_constructible<T>::value)
 {
-	if(!instance.get()) {
-		instance = std::make_shared<T>();
+	if(!instance) {
+		instance = std::make_unique<T>();
 	}
 	return instance;
 }
