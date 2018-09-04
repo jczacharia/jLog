@@ -1,9 +1,11 @@
-/*
- * jLog.h
- *
- *  Created on: Aug 26, 2018
- *      Author: jeremy
- */
+//============================================================================
+// Name        : jLog.h
+// Author      : Jeremy C. Zacharia
+// Version     : 0.1.1
+// Copyright   : (C) Jeremy C. Zacharia
+// Description : jLog Threaded Example
+//============================================================================
+
 
 #ifndef JLOG_H_
 #define JLOG_H_
@@ -19,7 +21,7 @@
 
 enum class Level
 {
-	Log, Warn, Err, Dbg
+	Log, War, Err, Dbg
 };
 
 template<class T>
@@ -29,14 +31,15 @@ protected:
 	/* Here will be the instance stored. */
 	static std::unique_ptr<T> instance;
 
-	/* Protected constructor to prevent instancing. */
-	Singleton()
-	{
-	}
+	/* Prevent instancing. */
+	Singleton() noexcept = default;
+	Singleton(const Singleton&) = delete;
+	Singleton& operator=(const Singleton&) = delete;
+	virtual ~Singleton() = default;
 
 public:
 	/* Static access method. */
-	static std::unique_ptr<T>& get()
+	static const std::unique_ptr<T>& get()
 			noexcept(std::is_nothrow_constructible<T>::value);
 
 };
@@ -44,10 +47,10 @@ public:
 class jLog: private Singleton<jLog>
 {
 public:
-
 	jLog() :
-			_level(Level::Log), _time_stamp_flag_for_new_log_entry(true), _console_output(
-					&std::cout)
+					_level(Level::Log),
+					_time_stamp_flag_for_new_log_entry(true),
+					_console_output(&std::cout)
 	{
 		// Get Now Time
 		auto now_time = std::chrono::system_clock::now();
@@ -101,7 +104,6 @@ public:
 	{
 		std::lock_guard<std::mutex> lock(jLog::_mutex);
 		if(_time_stamp_flag_for_new_log_entry) {
-
 			// set flag false so time and log isn't displayed
 			// 		for every << operation
 			_time_stamp_flag_for_new_log_entry = false;
@@ -109,11 +111,11 @@ public:
 			// Write to console
 			*_console_output << jLog::getNowTime()
 					<< jLog::logLevelToStringColor(_level) << t;
+
 			// Write to file
 			_file_output << jLog::getNowTime()
 					<< jLog::logLevelToStringNoColor(_level) << t;
 		} else {
-
 			// Write to console
 			*_console_output << t;
 
@@ -128,17 +130,19 @@ public:
 	jLog& operator<<(std::ostream& (*os)(std::ostream&))
 	{
 		std::lock_guard<std::mutex> lock(jLog::_mutex);
+
 		// Write new line to console
 		*_console_output << os;
+
 		// Write new line at the file for each log entry
 		_file_output << os;
 		_time_stamp_flag_for_new_log_entry = true;
 		return *this;
 	}
 
-	/* Static members */
-
-	// used for multiple << operations on each write
+	/*
+	 *  Static members
+	 */
 	static jLog& log(Level l = Level::Log)
 	{
 		std::lock_guard<std::mutex> lock(jLog::_mutex);
@@ -172,7 +176,7 @@ private:
 		switch(_level) {
 		case Level::Log:
 			return " [   LOG   ] ";
-		case Level::Warn:
+		case Level::War:
 			return " [ \e[33mWARNING\e[00m ] ";
 		case Level::Err:
 			return " [  \e[31mERROR\e[00m  ] ";
@@ -187,7 +191,7 @@ private:
 		switch(jll) {
 		case Level::Log:
 			return " [   LOG   ] ";
-		case Level::Warn:
+		case Level::War:
 			return " [ WARNING ] ";
 		case Level::Err:
 			return " [  ERROR  ] ";
@@ -201,13 +205,13 @@ private:
 // Init mutex
 std::mutex jLog::_mutex;
 
-// initialize static Singleton member
+// Init static Singleton instance member
 template<typename T>
 std::unique_ptr<T> Singleton<T>::instance(nullptr);
 
 /* Static access method. */
 template<typename T>
-std::unique_ptr<T>& Singleton<T>::get()
+const std::unique_ptr<T>& Singleton<T>::get()
 noexcept(std::is_nothrow_constructible<T>::value)
 {
 	if(!instance) {
