@@ -27,7 +27,7 @@ void f2()
 
 int main()
 {
-	jLog::setConsoleOutput(std::cerr);
+	jLog::setConsoleOutput(std::cout);
 
 	std::thread t1(f1);
 	std::thread t2(f2);
