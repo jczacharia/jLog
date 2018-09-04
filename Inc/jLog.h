@@ -6,7 +6,6 @@
 // Description : jLog Logging Framework
 //============================================================================
 
-
 #ifndef JLOG_H_
 #define JLOG_H_
 
@@ -46,8 +45,11 @@ public:
 
 class jLog: private Singleton<jLog>
 {
-public:
-	jLog() :
+	// Prevent constructor from being called
+	friend std::unique_ptr<jLog> std::make_unique<jLog>();
+	friend Singleton<jLog>;
+
+	explicit jLog() noexcept :
 					_level(Level::Log),
 					_time_stamp_flag_for_new_log_entry(true),
 					_console_output(&std::cout)
@@ -85,10 +87,7 @@ public:
 		}
 	}
 
-	~jLog()
-	{
-		_file_output.close();
-	}
+public:
 
 	const char* const getNowTime()
 	{
