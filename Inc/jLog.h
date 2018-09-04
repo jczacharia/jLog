@@ -45,11 +45,12 @@ public:
 
 class jLog: private Singleton<jLog>
 {
-	// Prevent constructor from being called
 	friend std::unique_ptr<jLog> std::make_unique<jLog>();
 	friend Singleton<jLog>;
+	jLog(const jLog&) = delete;
+	jLog& operator=(const jLog&) = delete;
 
-	explicit jLog() noexcept :
+	explicit jLog() :
 					_level(Level::Log),
 					_time_stamp_flag_for_new_log_entry(true),
 					_console_output(&std::cout)
@@ -144,7 +145,6 @@ public:
 	 */
 	static jLog& log(Level l = Level::Log)
 	{
-		std::lock_guard<std::mutex> lock(jLog::_mutex);
 		jLog& jlog = *jLog::get();
 		jlog._level = l;
 		return jlog;
@@ -213,6 +213,7 @@ template<typename T>
 const std::unique_ptr<T>& Singleton<T>::get()
 noexcept(std::is_nothrow_constructible<T>::value)
 {
+	std::lock_guard<std::mutex> lock(jLog::_mutex);
 	if(!instance) {
 		instance = std::make_unique<T>();
 	}
