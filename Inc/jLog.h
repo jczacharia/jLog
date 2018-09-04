@@ -77,8 +77,6 @@ class jLog: private Singleton<jLog>
 
 		_file_output = std::ofstream(fmt_time, std::ios::out | std::ios::app);
 		if(!_file_output.is_open()) {
-			// std::cerr writes (typically error messages) to the standard error stream stderr (unbuffered)
-			// https://en.wikipedia.org/wiki/Stderr
 			std::cerr << "*** jLog error: could not open output file: "
 					<< fmt_time << std::endl;
 		} else {
