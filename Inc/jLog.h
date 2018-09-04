@@ -3,7 +3,11 @@
 // Author      : Jeremy C. Zacharia
 // Version     : 0.1.1
 // Copyright   : (C) Jeremy C. Zacharia
+<<<<<<< HEAD
 // Description : jLog Framework
+=======
+// Description : jLog Threaded Example
+>>>>>>> master
 //============================================================================
 
 
