@@ -53,40 +53,11 @@ class jLog: private Singleton<jLog>
 	jLog(const jLog&) = delete;
 	jLog& operator=(const jLog&) = delete;
 
-	explicit jLog() :
+	jLog() :
 					_level(Level::Log),
 					_time_stamp_flag_for_new_log_entry(true),
 					_console_output(&std::cout)
 	{
-		// Get Now Time
-		auto now_time = std::chrono::system_clock::now();
-		std::time_t t_time = std::chrono::system_clock::to_time_t(now_time);
-		tm local_time = *localtime(&t_time);
-
-		// Create new single log file for the program's execution
-		std::string fmt_time = "logs/jLog_";
-		fmt_time.append(std::to_string(local_time.tm_year + 1900));
-		fmt_time.append("-");
-		fmt_time.append(std::to_string(local_time.tm_mon));
-		fmt_time.append("-");
-		fmt_time.append(std::to_string(local_time.tm_mday));
-		fmt_time.append("_");
-		fmt_time.append(std::to_string(local_time.tm_hour));
-		fmt_time.append("-");
-		fmt_time.append(std::to_string(local_time.tm_min));
-		fmt_time.append("-");
-		fmt_time.append(std::to_string(local_time.tm_sec));
-		fmt_time.append(".txt");
-
-		_file_output = std::ofstream(fmt_time, std::ios::out | std::ios::app);
-		if(!_file_output.is_open()) {
-			std::cerr << "*** jLog error: could not open output file: "
-					<< fmt_time << std::endl;
-		} else {
-			*_console_output << "Created log file: " << fmt_time << std::endl;
-			_file_output
-					<< "This Log file was created using the jLog Framework (C) Jeremy C Zacharia\n\n";
-		}
 	}
 
 public:
@@ -152,16 +123,47 @@ public:
 		return jlog;
 	}
 
-	static void setConsoleOutput(std::ostream& os)
+	static void init(const char* const p = "", std::ostream& os = std::cout)
 	{
-		jLog& jlog = *jLog::get();
-		jlog._console_output = &os;
-	}
+		jLog& jl = *jLog::get();
+		std::string file_path;
+		if(p == "") {
+			// Get Now Time
+			auto now_time = std::chrono::system_clock::now();
+			std::time_t t_time = std::chrono::system_clock::to_time_t(now_time);
+			tm local_time = *localtime(&t_time);
 
-	static void setFileOutput(const char* const path)
-	{
-		jLog& jlog = *jLog::get();
-		jlog._file_output = std::ofstream(path, std::ios::out | std::ios::app);
+			// Create new single log file for the program's execution
+			file_path.append("./logs/");
+			file_path.append(std::to_string(local_time.tm_year + 1900));
+			file_path.append("-");
+			file_path.append(std::to_string(local_time.tm_mon));
+			file_path.append("-");
+			file_path.append(std::to_string(local_time.tm_mday));
+			file_path.append("_");
+			file_path.append(std::to_string(local_time.tm_hour));
+			file_path.append("-");
+			file_path.append(std::to_string(local_time.tm_min));
+			file_path.append("-");
+			file_path.append(std::to_string(local_time.tm_sec));
+			file_path.append(".txt");
+		} else {
+			file_path = p;
+		}
+
+		jl._console_output = &os;
+		jl._file_output = std::ofstream(p, std::ios::out | std::ios::app);
+
+		jl._file_output = std::ofstream(file_path,
+				std::ios::out | std::ios::app);
+		if(!jl._file_output.is_open()) {
+			std::cerr << "*** jLog error: could not open output file: "
+					<< file_path << std::endl;
+		} else {
+			*jl._console_output << "Created log file: " << file_path << "\n\n";
+			jl._file_output
+					<< "This Log file was created using the jLog Framework (C) Jeremy C Zacharia\n\n";
+		}
 	}
 
 private:
