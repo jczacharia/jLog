@@ -26,6 +26,8 @@ int main()
 		jLog::log(Level::Dbg) << "This is another debug message." << std::endl;
 	};
 
+	jLog::init("", std::cout);
+
 	std::thread t1(f1);
 	std::thread t2(f2);
 
