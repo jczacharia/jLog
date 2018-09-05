@@ -185,7 +185,7 @@ private:
 		case Level::Dbg:
 			return " [  \e[34mDEBUG\e[00m  ] ";
 		}
-		return "";
+		return " [   LOG   ] ";
 	}
 
 	const char* const logLevelToStringNoColor(Level jll)
@@ -200,7 +200,7 @@ private:
 		case Level::Dbg:
 			return " [  DEBUG  ] ";
 		}
-		return "";
+		return " [   LOG   ] ";
 	}
 };
 
