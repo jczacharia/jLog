@@ -18,6 +18,7 @@
 #include <thread>
 #include <functional>
 #include <mutex>
+#include <atomic>
 
 enum class Level
 {
@@ -29,7 +30,8 @@ class Singleton
 {
 protected:
 	/* Here will be the instance stored. */
-	static std::unique_ptr<T> instance;
+	static std::atomic<T*> instance;
+	static std::mutex mutex;
 
 	/* Prevent instancing. */
 	Singleton() noexcept = default;
@@ -39,7 +41,7 @@ protected:
 
 public:
 	/* Static access method. */
-	static const std::unique_ptr<T>& get()
+	static T* get()
 			noexcept(std::is_nothrow_constructible<T>::value);
 
 };
@@ -162,8 +164,6 @@ public:
 		jlog._file_output = std::ofstream(path, std::ios::out | std::ios::app);
 	}
 
-
-
 private:
 
 	Level _level;
@@ -203,22 +203,29 @@ private:
 	}
 };
 
-// Init mutex
 std::mutex jLog::_mutex;
 
-// Init static Singleton instance member
 template<typename T>
-std::unique_ptr<T> Singleton<T>::instance(nullptr);
+std::mutex Singleton<T>::mutex;
+
+template<typename T>
+std::atomic<T*> Singleton<T>::instance;
 
 /* Static access method. */
 template<typename T>
-const std::unique_ptr<T>& Singleton<T>::get()
+T* Singleton<T>::get()
 noexcept(std::is_nothrow_constructible<T>::value)
 {
-	if(!instance) {
-		instance = std::make_unique<T>();
+	T* sin = instance.load();
+	if(!sin) {
+		std::lock_guard<std::mutex> myLock(mutex);
+		sin = instance.load();
+		if(!sin) {
+			sin = new T;
+			instance.store(sin);
+		}
 	}
-	return instance;
+	return sin;
 }
 
 #endif /* JLOG_H_ */
