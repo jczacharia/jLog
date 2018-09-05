@@ -16,7 +16,9 @@
 #include <cstring>
 #include <ctime>
 #include <thread>
+#include <functional>
 #include <mutex>
+#include <type_traits>
 
 enum class Level
 {
@@ -46,7 +48,7 @@ public:
 class jLog: private Singleton<jLog>
 {
 	friend std::unique_ptr<jLog> std::make_unique<jLog>();
-	friend Singleton<jLog>;
+	friend Singleton<jLog> ;
 	jLog(const jLog&) = delete;
 	jLog& operator=(const jLog&) = delete;
 
@@ -102,7 +104,7 @@ public:
 	template<typename T>
 	jLog& operator<<(const T& t)
 	{
-		std::lock_guard<std::mutex> lock(jLog::_mutex);
+
 		if(_time_stamp_flag_for_new_log_entry) {
 			// set flag false so time and log isn't displayed
 			// 		for every << operation
@@ -129,7 +131,6 @@ public:
 	//     to designate log entry is finished
 	jLog& operator<<(std::ostream& (*os)(std::ostream&))
 	{
-		std::lock_guard<std::mutex> lock(jLog::_mutex);
 
 		// Write new line to console
 		*_console_output << os;
@@ -137,6 +138,7 @@ public:
 		// Write new line at the file for each log entry
 		_file_output << os;
 		_time_stamp_flag_for_new_log_entry = true;
+		_mutex.unlock();
 		return *this;
 	}
 
@@ -145,6 +147,7 @@ public:
 	 */
 	static jLog& log(Level l = Level::Log)
 	{
+		_mutex.lock();
 		jLog& jlog = *jLog::get();
 		jlog._level = l;
 		return jlog;
@@ -161,6 +164,8 @@ public:
 		jLog& jlog = *jLog::get();
 		jlog._file_output = std::ofstream(path, std::ios::out | std::ios::app);
 	}
+
+
 
 private:
 
@@ -213,7 +218,6 @@ template<typename T>
 const std::unique_ptr<T>& Singleton<T>::get()
 noexcept(std::is_nothrow_constructible<T>::value)
 {
-	std::lock_guard<std::mutex> lock(jLog::_mutex);
 	if(!instance) {
 		instance = std::make_unique<T>();
 	}
