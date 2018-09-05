@@ -54,7 +54,7 @@ class jLog: private Singleton<jLog>
 
 	jLog() :
 					_level(Level::Log),
-					_time_stamp_flag_for_new_log_entry(true),
+					_new_log_entry(true),
 					_console_output(&std::cout)
 	{
 	}
@@ -74,10 +74,10 @@ public:
 	jLog& operator<<(const T& t)
 	{
 
-		if(_time_stamp_flag_for_new_log_entry) {
+		if(_new_log_entry) {
 			// set flag false so time and log isn't displayed
 			// 		for every << operation
-			_time_stamp_flag_for_new_log_entry = false;
+			_new_log_entry = false;
 
 			// Write to console
 			*_console_output << jLog::getNowTime()
@@ -106,7 +106,7 @@ public:
 
 		// Write new line at the file for each log entry
 		_file_output << os;
-		_time_stamp_flag_for_new_log_entry = true;
+		_new_log_entry = true;
 		_mutex.unlock();
 		return *this;
 	}
@@ -168,7 +168,7 @@ public:
 private:
 
 	Level _level;
-	bool _time_stamp_flag_for_new_log_entry;
+	bool _new_log_entry;
 	std::ofstream _file_output;
 	std::ostream* _console_output;
 	static std::mutex _mutex;
