@@ -41,35 +41,25 @@ protected:
 
 public:
 	/* Static access method. */
-	static T* get()
-			noexcept(std::is_nothrow_constructible<T>::value);
+	static T* get() noexcept(std::is_nothrow_constructible<T>::value);
 
 };
 
 class jLog: private Singleton<jLog>
 {
-	friend Singleton<jLog>;
+	friend Singleton<jLog> ;
 	jLog(const jLog&) = delete;
 	jLog& operator=(const jLog&) = delete;
 
 	jLog() :
 					_level(Level::Log),
 					_new_log_entry(true),
-					_console_output(&std::cout)
+					_console_output(
+							&std::cout)
 	{
 	}
 
 public:
-
-	const char* const getNowTime()
-	{
-		auto now_time = std::chrono::system_clock::now();
-		std::time_t sleep_time = std::chrono::system_clock::to_time_t(now_time);
-		char* rtn = std::ctime(&sleep_time);
-		rtn[strlen(rtn) - 1] = '\0'; // delete '\n' at the end
-		return rtn;
-	}
-
 	template<typename T>
 	jLog& operator<<(const T& t)
 	{
@@ -93,6 +83,34 @@ public:
 			// write to file
 			_file_output << t;
 		}
+		return *this;
+	}
+
+	jLog& operator<<(const char* const str)
+	{
+		std::string tmp(str);
+		findAndReplace(tmp, "\n", "\n\t\t\t\t     ");
+
+		if(_new_log_entry) {
+			// set flag false so time and log isn't displayed
+			// 		for every << operation
+			_new_log_entry = false;
+
+			// Write to console
+			*_console_output << jLog::getNowTime()
+					<< jLog::logLevelToStringColor(_level) << tmp;
+
+			// Write to file
+			_file_output << jLog::getNowTime()
+					<< jLog::logLevelToStringNoColor(_level) << tmp;
+		} else {
+			// Write to console
+			*_console_output << tmp;
+
+			// write to file
+			_file_output << tmp;
+		}
+
 		return *this;
 	}
 
@@ -161,7 +179,8 @@ public:
 		} else {
 			*jl._console_output << "Created log file: " << file_path << "\n\n";
 			jl._file_output
-					<< "This Log file was created using the jLog Framework (C) Jeremy C Zacharia\n\n";
+			<< "This Log file was created "
+					<< "using the jLog Framework (C) Jeremy C Zacharia\n\n";
 		}
 	}
 
@@ -172,6 +191,26 @@ private:
 	std::ofstream _file_output;
 	std::ostream* _console_output;
 	static std::mutex _mutex;
+
+	void findAndReplace(std::string& source, std::string const& find,
+			std::string const& replace)
+	{
+		for(std::string::size_type i = 0;
+				(i = source.find(find, i)) != std::string::npos;)
+		{
+			source.replace(i, find.length(), replace);
+			i += replace.length();
+		}
+	}
+
+	const char* const getNowTime()
+	{
+		auto now_time = std::chrono::system_clock::now();
+		std::time_t sleep_time = std::chrono::system_clock::to_time_t(now_time);
+		char* rtn = std::ctime(&sleep_time);
+		rtn[strlen(rtn) - 1] = '\0'; // delete '\n' at the end
+		return rtn;
+	}
 
 	const char* const logLevelToStringColor(Level jll)
 	{
