@@ -144,7 +144,7 @@ public:
 	{
 		jLog& jl = *jLog::get();
 		std::string file_path;
-		if(p == "") {
+		if(strcmp(p, "") == 0) {
 			// Get Now Time
 			auto now_time = std::chrono::system_clock::now();
 			std::time_t t_time = std::chrono::system_clock::to_time_t(now_time);
