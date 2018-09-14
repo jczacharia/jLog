@@ -18,7 +18,9 @@
 #include <thread>
 #include <functional>
 #include <mutex>
+#include <cstdlib>
 #include <atomic>
+#include <exception>
 
 enum class Level
 {
@@ -54,8 +56,7 @@ class jLog: private Singleton<jLog>
 	jLog() :
 					_level(Level::Log),
 					_new_log_entry(true),
-					_console_output(
-							&std::cout)
+					_console_output(&std::cout)
 	{
 	}
 
@@ -63,6 +64,8 @@ public:
 	template<typename T>
 	jLog& operator<<(const T& t)
 	{
+		std::string str(t);
+		findAndReplace(str, "\n", "\n\t\t\t\t     ");
 
 		if(_new_log_entry) {
 			// set flag false so time and log isn't displayed
@@ -71,46 +74,18 @@ public:
 
 			// Write to console
 			*_console_output << jLog::getNowTime()
-					<< jLog::logLevelToStringColor(_level) << t;
+					<< jLog::logLevelToStringColor(_level) << str;
 
 			// Write to file
 			_file_output << jLog::getNowTime()
-					<< jLog::logLevelToStringNoColor(_level) << t;
+					<< jLog::logLevelToStringNoColor(_level) << str;
 		} else {
 			// Write to console
-			*_console_output << t;
+			*_console_output << str;
 
 			// write to file
-			_file_output << t;
+			_file_output << str;
 		}
-		return *this;
-	}
-
-	jLog& operator<<(const char* const str)
-	{
-		std::string tmp(str);
-		findAndReplace(tmp, "\n", "\n\t\t\t\t     ");
-
-		if(_new_log_entry) {
-			// set flag false so time and log isn't displayed
-			// 		for every << operation
-			_new_log_entry = false;
-
-			// Write to console
-			*_console_output << jLog::getNowTime()
-					<< jLog::logLevelToStringColor(_level) << tmp;
-
-			// Write to file
-			_file_output << jLog::getNowTime()
-					<< jLog::logLevelToStringNoColor(_level) << tmp;
-		} else {
-			// Write to console
-			*_console_output << tmp;
-
-			// write to file
-			_file_output << tmp;
-		}
-
 		return *this;
 	}
 
@@ -142,16 +117,18 @@ public:
 
 	static void init(const char* const p = "", std::ostream& os = std::cout)
 	{
+		std::lock_guard<std::mutex> guard(_mutex);
 		jLog& jl = *jLog::get();
 		std::string file_path;
+
+		file_path.append("logs/");
+
 		if(strcmp(p, "") == 0) {
 			// Get Now Time
 			auto now_time = std::chrono::system_clock::now();
 			std::time_t t_time = std::chrono::system_clock::to_time_t(now_time);
 			tm local_time = *localtime(&t_time);
 
-			// Create new single log file for the program's execution
-			file_path.append("./logs/");
 			file_path.append(std::to_string(local_time.tm_year + 1900));
 			file_path.append("-");
 			file_path.append(std::to_string(local_time.tm_mon));
@@ -197,7 +174,7 @@ private:
 	{
 		for(std::string::size_type i = 0;
 				(i = source.find(find, i)) != std::string::npos;)
-		{
+				{
 			source.replace(i, find.length(), replace);
 			i += replace.length();
 		}

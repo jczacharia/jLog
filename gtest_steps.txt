@@ -1,0 +1,10 @@
+cmake -DBUILD_SHARED_LIBS=ON
+make
+sudo make install
+
+# Eclipse
+linker: -lgtest -lgtest_main -L/usr/local/lib
+
+gedit /etc/ld.so.conf.d/gtest.conf >> /usr/local/lib
+then run sudo ldconfig
+
